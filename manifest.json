@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/t8y2/dbx/main/plugins/manifest.schema.json",
+  "manifest_version": 1,
+  "id": "alan.clipboard",
+  "name": "Clipboard History",
+  "version": "0.1.0",
+  "publisher": "alan",
+  "description": "Browse and search local clipboard history.",
+  "icon": "assets/plugin.svg",
+  "engines": {
+    "dbx": ">=0.5.68",
+    "host_api": "1"
+  },
+  "permissions": ["host.events"],
+  "entrypoints": {
+    "backend": {
+      "protocol_versions": [1],
+      "transport": "stdio-jsonl",
+      "executable": "bin/dbx-plugin-clipboard"
+    },
+    "ui": {
+      "root": "ui",
+      "entry": "ui/index.html"
+    }
+  },
+  "contributions": [
+    {
+      "type": "workbench",
+      "id": "alan.clipboard.workbench",
+      "label": "Clipboard History",
+      "description": "Search and reuse recent clipboard items.",
+      "icon": "assets/plugin.svg"
+    }
+  ],
+  "localizations": {
+    "zh-CN": {
+      "name": "剪贴板历史",
+      "description": "浏览、搜索并复用本机剪贴板记录。",
+      "contributions": {
+        "alan.clipboard.workbench": {
+          "label": "剪贴板历史",
+          "description": "搜索并复用最近的剪贴板内容。"
+        }
+      }
+    }
+  }
+}

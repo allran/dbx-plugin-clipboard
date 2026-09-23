@@ -1,0 +1,4 @@
+    Updating crates.io index
+error: no matching package named `dbx-plugin-sdk` found
+location searched: crates.io index
+required by package `dbx-plugin-clipboard v0.1.0 (/Users/alan/VsCodeProjects/alan/dbx-plugin-clipboard/backend)`
