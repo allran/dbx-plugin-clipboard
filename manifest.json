@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/t8y2/dbx/main/plugins/manifest.schema.json",
   "manifest_version": 1,
-  "id": "alan.clipboard",
+  "id": "io.dbx.clipboard",
   "name": "Clipboard History",
   "version": "0.1.0",
   "publisher": "alan",
@@ -26,7 +26,7 @@
   "contributions": [
     {
       "type": "workbench",
-      "id": "alan.clipboard.workbench",
+      "id": "io.dbx.clipboard.workbench",
       "label": "Clipboard History",
       "description": "Search and reuse recent clipboard items.",
       "icon": "assets/plugin.svg"
@@ -37,7 +37,7 @@
       "name": "剪贴板历史",
       "description": "浏览、搜索并复用本机剪贴板记录。",
       "contributions": {
-        "alan.clipboard.workbench": {
+        "io.dbx.clipboard.workbench": {
           "label": "剪贴板历史",
           "description": "搜索并复用最近的剪贴板内容。"
         }

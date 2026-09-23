@@ -376,7 +376,7 @@ impl PluginHandler for Plugin {
 fn data_dir() -> PathBuf {
     env::var_os("DBX_PLUGIN_DATA_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| env::temp_dir().join("dbx-plugin-data").join("alan.clipboard"))
+        .unwrap_or_else(|| env::temp_dir().join("dbx-plugin-data").join("io.dbx.clipboard"))
 }
 
 fn history_path() -> PathBuf {
@@ -616,7 +616,7 @@ fn write_item_to_clipboard(item: &ClipboardItem) -> Result<(), PluginError> {
 }
 
 fn log_stderr(message: impl AsRef<str>) {
-    let _ = writeln!(io::stderr(), "[alan.clipboard] {}", message.as_ref());
+    let _ = writeln!(io::stderr(), "[io.dbx.clipboard] {}", message.as_ref());
 }
 
 fn open_local_path(raw: &str) -> Result<(), PluginError> {
@@ -700,7 +700,7 @@ fn main() -> std::io::Result<()> {
     log_stderr(format!("history path: {}", history_path().display()));
 
     let metadata =
-        PluginMetadata::new("alan.clipboard", env!("CARGO_PKG_VERSION")).with_capability("events");
+        PluginMetadata::new("io.dbx.clipboard", env!("CARGO_PKG_VERSION")).with_capability("events");
     let plugin = Plugin {
         store,
         emitter: Arc::new(Mutex::new(None)),
