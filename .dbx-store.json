@@ -7,7 +7,7 @@
   "source": "https://github.com/allran/dbx-plugin-clipboard",
   "homepage": "https://github.com/allran/dbx-plugin-clipboard",
   "license": "Apache-2.0",
-  "releaseNotes": "Initial release: clipboard history workbench with search, tabs, preview, and double-click copy.",
+  "releaseNotes": "Add favorites: pin items, favorites tab with count, and unfavorite from the favorites list.",
   "localizations": {
     "zh-CN": {
       "name": "剪贴板历史",

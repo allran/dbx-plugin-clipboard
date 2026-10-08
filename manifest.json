@@ -3,7 +3,7 @@
   "manifest_version": 1,
   "id": "io.dbx.clipboard",
   "name": "Clipboard History",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "alan",
   "description": "Browse and search local clipboard history.",
   "icon": "assets/plugin.svg",

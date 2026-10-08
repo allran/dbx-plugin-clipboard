@@ -2,7 +2,17 @@
   import { onDestroy } from "svelte";
   import { fileName, formatTime, previewText } from "../lib/format.js";
 
-  let { item, text, oncopy, ondelete, onpreview, onviewtext, onviewfiles } = $props();
+  let {
+    item,
+    text,
+    favoritesMode = false,
+    oncopy,
+    onfavorite,
+    ondelete,
+    onpreview,
+    onviewtext,
+    onviewfiles,
+  } = $props();
 
   let copied = $state(false);
   let viewTimer = 0;
@@ -101,23 +111,53 @@
       <span>{formatTime(item.createdAt)}</span>
       <span>{metaLabel(item)}</span>
     </div>
-    <button
-      class="delete"
-      type="button"
-      title={text.delete}
-      aria-label={text.delete}
-      onclick={(event) => {
-        event.stopPropagation();
-        ondelete?.(item);
-      }}
-    >
-      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7H4V5h4V4a1 1 0 0 1 1-1Zm1 2v0h4V5h-4Zm-2 4v10h8V9H8Z"
-        />
-      </svg>
-    </button>
+    <div class="actions">
+      {#if !favoritesMode}
+        <button
+          class="action"
+          class:active={item.favorite}
+          type="button"
+          title={item.favorite ? text.unfavorite : text.favorite}
+          aria-label={item.favorite ? text.unfavorite : text.favorite}
+          aria-pressed={item.favorite}
+          onclick={(event) => {
+            event.stopPropagation();
+            onfavorite?.(item);
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            {#if item.favorite}
+              <path
+                fill="currentColor"
+                d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+              />
+            {:else}
+              <path
+                fill="currentColor"
+                d="m12 15.4 3.76 2.27-.99-4.28 3.32-2.88-4.38-.38L12 6.1l-1.71 4.04-4.38.38 3.32 2.88-.99 4.28zM12 17.27 5.82 21l1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.46 4.73L18.18 21z"
+              />
+            {/if}
+          </svg>
+        </button>
+      {/if}
+      <button
+        class="action danger"
+        type="button"
+        title={favoritesMode ? text.unfavorite : text.delete}
+        aria-label={favoritesMode ? text.unfavorite : text.delete}
+        onclick={(event) => {
+          event.stopPropagation();
+          ondelete?.(item);
+        }}
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7H4V5h4V4a1 1 0 0 1 1-1Zm1 2v0h4V5h-4Zm-2 4v10h8V9H8Z"
+          />
+        </svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -231,8 +271,14 @@
     font-size: 11px;
   }
 
-  .delete {
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     flex-shrink: 0;
+  }
+
+  .action {
     width: 28px;
     height: 28px;
     display: grid;
@@ -244,7 +290,21 @@
     border-radius: 8px;
   }
 
-  .delete:hover {
+  .action:hover {
+    color: var(--fg);
+    background: var(--hover);
+  }
+
+  .action.active {
+    color: #eab308;
+  }
+
+  .action.active:hover {
+    color: #ca8a04;
+    background: color-mix(in srgb, #eab308 12%, transparent);
+  }
+
+  .action.danger:hover {
     color: var(--danger);
     background: color-mix(in srgb, var(--danger) 10%, transparent);
   }

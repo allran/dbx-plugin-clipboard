@@ -25,19 +25,27 @@
   let toastTimer = 0;
   let unsubscribeEvent = null;
 
+  const favoriteCount = $derived(items.filter((item) => item.favorite).length);
+
   const tabs = $derived([
     { id: "all", label: text.tabAll },
     { id: "text", label: text.kindText },
     { id: "image", label: text.kindImage },
     { id: "files", label: text.kindFiles },
+    { id: "favorite", label: text.tabFavorite(favoriteCount) },
   ]);
 
   const needle = $derived(query.trim().toLowerCase());
+  const favoritesMode = $derived(kindFilter === "favorite");
 
   const filtered = $derived(
     items.filter((item) => {
       const kind = item.kind || "text";
-      if (kindFilter !== "all" && kind !== kindFilter) return false;
+      if (kindFilter === "favorite") {
+        if (!item.favorite) return false;
+      } else if (kindFilter !== "all" && kind !== kindFilter) {
+        return false;
+      }
       return itemMatches(item, needle);
     }),
   );
@@ -80,6 +88,27 @@
     try {
       await window.dbxPlugin.invoke("clipboard/delete", { id: item.id });
       showToast(text.deleted);
+      await loadList();
+    } catch (error) {
+      showToast(`${text.error}: ${error.message}`);
+    }
+  }
+
+  async function toggleFavorite(item) {
+    try {
+      const result = await window.dbxPlugin.invoke("clipboard/favorite", { id: item.id });
+      showToast(result?.favorite ? text.favorited : text.unfavorited);
+      await loadList();
+    } catch (error) {
+      showToast(`${text.error}: ${error.message}`);
+    }
+  }
+
+  async function removeFavorite(item) {
+    if (!item.favorite) return;
+    try {
+      await window.dbxPlugin.invoke("clipboard/favorite", { id: item.id });
+      showToast(text.unfavorited);
       await loadList();
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
@@ -251,8 +280,10 @@
         <HistoryItem
           {item}
           {text}
+          {favoritesMode}
           oncopy={copyItem}
-          ondelete={deleteItem}
+          onfavorite={toggleFavorite}
+          ondelete={favoritesMode ? removeFavorite : deleteItem}
           onpreview={previewImage}
           onviewtext={openText}
           onviewfiles={openFiles}
