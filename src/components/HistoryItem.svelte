@@ -15,8 +15,65 @@
   } = $props();
 
   let copied = $state(false);
+  let fetchedThumbId = $state("");
+  let fetchedThumbUrl = $state("");
+  let thumbVisible = $state(false);
+  /** @type {HTMLElement | null} */
+  let rowEl = $state(null);
   let viewTimer = 0;
   let copyTimer = 0;
+
+  const embeddedThumb = $derived(item.previewDataUrl || "");
+  const thumbUrl = $derived(
+    embeddedThumb || (fetchedThumbId === item.id ? fetchedThumbUrl : ""),
+  );
+
+  $effect(() => {
+    const el = rowEl;
+    if (!el || item.kind !== "image" || embeddedThumb) {
+      return;
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      thumbVisible = true;
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          thumbVisible = true;
+          observer.disconnect();
+        }
+      },
+      { root: null, rootMargin: "120px 0px", threshold: 0.01 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    const id = item.id;
+    const kind = item.kind;
+    const embedded = item.previewDataUrl || "";
+    if (!thumbVisible || kind !== "image" || embedded || !id || !window.dbxPlugin?.invoke) {
+      return;
+    }
+    if (fetchedThumbId === id && fetchedThumbUrl) {
+      return;
+    }
+    let cancelled = false;
+    window.dbxPlugin
+      .invoke("clipboard/thumb", { id })
+      .then((result) => {
+        if (!cancelled && result?.dataUrl) {
+          fetchedThumbId = id;
+          fetchedThumbUrl = result.dataUrl;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
 
   function kindLabel(kind) {
     if (kind === "image") return text.kindImage;
@@ -65,17 +122,22 @@
   class:copied
   role="listitem"
   title={text.hint}
+  bind:this={rowEl}
   ondblclick={handleCopy}
 >
   <div class="content">
-    {#if item.kind === "image" && item.previewDataUrl}
+    {#if item.kind === "image"}
       <button
         class="thumb-btn"
         type="button"
         title={text.viewImage}
         onclick={scheduleView(() => onpreview?.(item))}
       >
-        <img class="thumb" src={item.previewDataUrl} alt={text.kindImage} />
+        {#if thumbUrl}
+          <img class="thumb" src={thumbUrl} alt={text.kindImage} />
+        {:else}
+          <span class="thumb-placeholder" aria-hidden="true"></span>
+        {/if}
       </button>
     {:else if item.kind === "files" && Array.isArray(item.paths) && item.paths.length}
       <button
@@ -170,6 +232,8 @@
     border-bottom: 1px solid var(--border);
     cursor: default;
     user-select: none;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 88px;
   }
 
   .row:hover {
@@ -228,6 +292,15 @@
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--fg) 4%, transparent);
     object-fit: contain;
+  }
+
+  .thumb-placeholder {
+    display: block;
+    width: 120px;
+    height: 72px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
   }
 
   .file-list {

@@ -1,13 +1,15 @@
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 export function formatTime(ms) {
   if (!ms) return "";
   try {
-    return new Intl.DateTimeFormat(undefined, {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(new Date(ms));
+    return timeFormatter.format(new Date(ms));
   } catch {
     return new Date(ms).toLocaleString();
   }

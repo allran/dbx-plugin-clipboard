@@ -1,6 +1,6 @@
 [package]
 name = "dbx-plugin-clipboard"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -14,6 +14,9 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard"] }
 
 # Keep plugin binaries close to the host app's size: default release settings
 # leave ~20MB of symbols and unoptimized generic code in an OpenDAL-sized backend.

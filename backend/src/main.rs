@@ -19,7 +19,14 @@ use util::{history_path, log_stderr};
 fn main() -> std::io::Result<()> {
     let store = Arc::new(Mutex::new(HistoryStore::load(history_path())));
     if let Some(capture) = read_clipboard_capture() {
-        let _ = store.lock().map(|mut guard| guard.push_capture(capture));
+        match store.lock() {
+            Ok(mut guard) => {
+                if let Err(err) = guard.push_capture(capture) {
+                    log_stderr(format!("startup capture failed: {err:?}"));
+                }
+            }
+            Err(_) => log_stderr("startup capture skipped: poisoned history store"),
+        }
     }
 
     log_stderr(format!("history path: {}", history_path().display()));

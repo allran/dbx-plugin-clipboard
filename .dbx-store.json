@@ -7,7 +7,7 @@
   "source": "https://github.com/allran/dbx-plugin-clipboard",
   "homepage": "https://github.com/allran/dbx-plugin-clipboard",
   "license": "Apache-2.0",
-  "releaseNotes": "Add favorites: pin items, favorites tab with count, and unfavorite from the favorites list.",
+  "releaseNotes": "性能与稳定性优化：列表缩略图懒加载、剪贴板变更探测与增量同步；修复清空后无法重新收录、持久化失败回滚，以及图片指纹去重等问题。",
   "localizations": {
     "zh-CN": {
       "name": "剪贴板历史",

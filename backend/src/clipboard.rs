@@ -7,6 +7,30 @@ use crate::media::decode_png_file;
 use crate::model::{Capture, ClipboardItem};
 use crate::util::{data_dir, log_stderr};
 
+/// Cheap clipboard generation token when the OS exposes one.
+/// `None` means the platform has no cheap probe — callers should read content.
+pub fn clipboard_generation() -> Option<u64> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::NSPasteboard;
+        let pasteboard = NSPasteboard::generalPasteboard();
+        return Some(pasteboard.changeCount() as u64);
+    }
+    #[cfg(windows)]
+    {
+        #[link(name = "user32")]
+        extern "system" {
+            fn GetClipboardSequenceNumber() -> u32;
+        }
+        // SAFETY: Win32 clipboard sequence API has no preconditions.
+        return Some(unsafe { GetClipboardSequenceNumber() } as u64);
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        None
+    }
+}
+
 pub fn read_clipboard_capture() -> Option<Capture> {
     let mut clipboard = match Clipboard::new() {
         Ok(clipboard) => clipboard,

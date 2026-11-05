@@ -26,11 +26,6 @@ pub fn build_image_item(
     fs::write(data_dir().join(&rel), &png)
         .map_err(|err| PluginError::new(-32000, format!("Failed to write image blob: {err}")))?;
 
-    let (thumb_w, thumb_h, thumb_rgba) =
-        maybe_downscale(store_w, store_h, &store_rgba, THUMB_EDGE)?;
-    let thumb_png = encode_png(thumb_w, thumb_h, &thumb_rgba)?;
-    let preview_data_url = format!("data:image/png;base64,{}", BASE64.encode(thumb_png));
-
     Ok(ClipboardItem {
         id: id.to_string(),
         kind: "image".into(),
@@ -41,10 +36,31 @@ pub fn build_image_item(
         height: Some(store_h),
         media_file: Some(rel),
         paths: None,
-        preview_data_url: Some(preview_data_url),
+        // Thumbs are served lazily via clipboard/thumb to keep list IPC small.
+        preview_data_url: None,
         favorite: false,
         fingerprint: fingerprint.to_string(),
     })
+}
+
+pub fn build_thumb_data_url(path: &Path) -> Result<String, PluginError> {
+    let (width, height, rgba) = decode_png_file(path)?;
+    let (thumb_w, thumb_h, thumb_rgba) = maybe_downscale(width, height, &rgba, THUMB_EDGE)?;
+    let thumb_png = encode_png(thumb_w, thumb_h, &thumb_rgba)?;
+    Ok(format!(
+        "data:image/png;base64,{}",
+        BASE64.encode(thumb_png)
+    ))
+}
+
+/// Fingerprint the same pixels that get stored (after MAX_IMAGE_EDGE downscale).
+pub fn fingerprint_store_image(
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+) -> Result<String, PluginError> {
+    let (_, _, store_rgba) = maybe_downscale(width, height, rgba, MAX_IMAGE_EDGE)?;
+    Ok(crate::util::fingerprint_bytes(&store_rgba))
 }
 
 fn maybe_downscale(

@@ -5,12 +5,12 @@ use dbx_plugin_sdk::{PluginEmitter, PluginError, PluginHandler, RequestContext};
 use serde_json::{json, Value};
 
 use crate::clipboard::{read_clipboard_capture, write_item_to_clipboard};
-use crate::media::build_lightbox_data_url;
+use crate::media::{build_lightbox_data_url, build_thumb_data_url};
 use crate::model::ClipboardItem;
 use crate::monitor::start_monitor;
 use crate::reveal::open_local_path;
-use crate::store::HistoryStore;
-use crate::util::data_dir;
+use crate::store::{CaptureDecision, HistoryStore};
+use crate::util::{data_dir, fingerprint_capture};
 
 pub struct Plugin {
     store: Arc<Mutex<HistoryStore>>,
@@ -93,10 +93,9 @@ impl PluginHandler for Plugin {
                 self.with_store(|store| {
                     store.suppress_once = Some(item.fingerprint.clone());
                     store.last_seen = item.fingerprint.clone();
-                    store.bump_to_top(&item.id);
-                    Ok(())
-                })?;
-                Ok(json!({ "success": true, "kind": item.kind }))
+                    store.bump_to_top(&item.id)?;
+                    Ok(json!({ "success": true, "kind": item.kind }))
+                })
             }
             "clipboard/delete" => {
                 let id = require_id(&params)?;
@@ -116,15 +115,58 @@ impl PluginHandler for Plugin {
                 Ok(json!({ "success": true }))
             }
             "clipboard/capture" => {
-                let capture = read_clipboard_capture();
-                self.with_store(|store| {
-                    let item = capture.and_then(|c| store.push_capture(c));
-                    Ok(json!({
-                        "success": true,
-                        "item": item,
-                        "total": store.items.len()
-                    }))
-                })
+                let Some(capture) = read_clipboard_capture() else {
+                    return self.with_store(|store| {
+                        Ok(json!({
+                            "success": true,
+                            "item": Value::Null,
+                            "total": store.items.len()
+                        }))
+                    });
+                };
+                let fingerprint = fingerprint_capture(&capture)?;
+                let decision = self.with_store(|store| Ok(store.decide_capture(&fingerprint)))?;
+                let CaptureDecision::Accept { preserved_favorite } = decision else {
+                    return self.with_store(|store| {
+                        Ok(json!({
+                            "success": true,
+                            "item": Value::Null,
+                            "total": store.items.len()
+                        }))
+                    });
+                };
+                let item = match HistoryStore::materialize_capture(capture, &fingerprint) {
+                    Ok(item) => item,
+                    Err(err) => {
+                        self.with_store(|store| {
+                            store.release_capture_reservation(&fingerprint);
+                            Ok(())
+                        })?;
+                        return Err(PluginError::new(
+                            -32000,
+                            format!("Failed to capture clipboard: {err:?}"),
+                        ));
+                    }
+                };
+                let item = self.with_store(|store| store.commit_item(item, preserved_favorite))?;
+                let total = self.with_store(|store| Ok(store.items.len()))?;
+                Ok(json!({ "success": true, "item": item, "total": total }))
+            }
+            "clipboard/thumb" => {
+                let id = require_id(&params)?;
+                let item = self.require_item(id)?;
+                if item.kind != "image" {
+                    return Err(PluginError::new(-32602, "Item is not an image"));
+                }
+                if let Some(data_url) = item.preview_data_url.filter(|url| !url.is_empty()) {
+                    return Ok(json!({ "id": item.id, "dataUrl": data_url }));
+                }
+                let rel = item
+                    .media_file
+                    .as_ref()
+                    .ok_or_else(|| PluginError::new(-32000, "Image blob missing"))?;
+                let data_url = build_thumb_data_url(&data_dir().join(rel))?;
+                Ok(json!({ "id": item.id, "dataUrl": data_url }))
             }
             "clipboard/media" => {
                 let id = require_id(&params)?;

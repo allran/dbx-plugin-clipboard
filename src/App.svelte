@@ -24,6 +24,8 @@
 
   let toastTimer = 0;
   let unsubscribeEvent = null;
+  /** @type {Map<string, string>} */
+  const mediaCache = new Map();
 
   const favoriteCount = $derived(items.filter((item) => item.favorite).length);
 
@@ -69,6 +71,39 @@
     preview = null;
   }
 
+  function upsertItem(item) {
+    if (!item?.id) return;
+    const fingerprint = item.fingerprint;
+    items = [
+      item,
+      ...items.filter(
+        (existing) =>
+          existing.id !== item.id &&
+          (!fingerprint || existing.fingerprint !== fingerprint),
+      ),
+    ];
+  }
+
+  function removeItemLocal(id) {
+    mediaCache.delete(id);
+    items = items.filter((item) => item.id !== id);
+  }
+
+  function bumpItemLocal(id) {
+    const index = items.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    const next = { ...items[index], createdAt: Date.now() };
+    items = [next, ...items.filter((_, i) => i !== index)];
+  }
+
+  function setFavoriteLocal(id, favorite) {
+    items = items.map((item) => (item.id === id ? { ...item, favorite } : item));
+  }
+
+  function eventItem(event) {
+    return event?.params?.item ?? event?.data?.item ?? event?.item ?? null;
+  }
+
   async function loadList() {
     const result = await window.dbxPlugin.invoke("clipboard/list", {});
     items = Array.isArray(result?.items) ? result.items : [];
@@ -77,8 +112,8 @@
   async function copyItem(item) {
     try {
       await window.dbxPlugin.invoke("clipboard/copy", { id: item.id });
+      bumpItemLocal(item.id);
       showToast(text.copied);
-      await loadList();
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
     }
@@ -87,8 +122,8 @@
   async function deleteItem(item) {
     try {
       await window.dbxPlugin.invoke("clipboard/delete", { id: item.id });
+      removeItemLocal(item.id);
       showToast(text.deleted);
-      await loadList();
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
     }
@@ -97,19 +132,9 @@
   async function toggleFavorite(item) {
     try {
       const result = await window.dbxPlugin.invoke("clipboard/favorite", { id: item.id });
-      showToast(result?.favorite ? text.favorited : text.unfavorited);
-      await loadList();
-    } catch (error) {
-      showToast(`${text.error}: ${error.message}`);
-    }
-  }
-
-  async function removeFavorite(item) {
-    if (!item.favorite) return;
-    try {
-      await window.dbxPlugin.invoke("clipboard/favorite", { id: item.id });
-      showToast(text.unfavorited);
-      await loadList();
+      const favorite = Boolean(result?.favorite);
+      setFavoriteLocal(item.id, favorite);
+      showToast(favorite ? text.favorited : text.unfavorited);
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
     }
@@ -118,8 +143,12 @@
   async function refresh() {
     refreshing = true;
     try {
-      await window.dbxPlugin.invoke("clipboard/capture", {});
-      await loadList();
+      const result = await window.dbxPlugin.invoke("clipboard/capture", {});
+      if (result?.item) {
+        upsertItem(result.item);
+      } else {
+        await loadList();
+      }
       showToast(text.refreshed);
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
@@ -133,8 +162,9 @@
     try {
       await window.dbxPlugin.invoke("clipboard/clear", {});
       clearOpen = false;
+      mediaCache.clear();
+      items = [];
       showToast(text.cleared);
-      await loadList();
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
     } finally {
@@ -144,9 +174,13 @@
 
   async function previewImage(item) {
     try {
-      const result = await window.dbxPlugin.invoke("clipboard/media", { id: item.id });
-      const src = result?.dataUrl || "";
-      if (!src) throw new Error("Image unavailable");
+      let src = mediaCache.get(item.id);
+      if (!src) {
+        const result = await window.dbxPlugin.invoke("clipboard/media", { id: item.id });
+        src = result?.dataUrl || "";
+        if (!src) throw new Error("Image unavailable");
+        mediaCache.set(item.id, src);
+      }
       preview = { kind: "image", src };
     } catch (error) {
       showToast(`${text.error}: ${error.message}`);
@@ -182,16 +216,20 @@
         unsubscribeEvent =
           window.dbxPlugin.onEvent?.((event) => {
             const method = event?.method || event?.type || event?.name || event?.event;
-            if (method === "clipboard/item") {
-              loadList().catch(() => {});
+            if (method !== "clipboard/item") return;
+            const incoming = eventItem(event);
+            if (incoming) {
+              upsertItem(incoming);
+              return;
             }
+            loadList().catch(() => {});
           }) ?? null;
       } catch {
         // events optional in older hosts
       }
 
+      // Sidecar already captures on startup; only load the list here.
       try {
-        await window.dbxPlugin.invoke("clipboard/capture", {});
         await loadList();
       } catch (error) {
         bootError = `${text.error}: ${error.message}`;
@@ -283,7 +321,7 @@
           {favoritesMode}
           oncopy={copyItem}
           onfavorite={toggleFavorite}
-          ondelete={favoritesMode ? removeFavorite : deleteItem}
+          ondelete={favoritesMode ? toggleFavorite : deleteItem}
           onpreview={previewImage}
           onviewtext={openText}
           onviewfiles={openFiles}

@@ -5,7 +5,10 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::model::ClipboardItem;
+use dbx_plugin_sdk::PluginError;
+
+use crate::media::fingerprint_store_image;
+use crate::model::{Capture, ClipboardItem};
 
 pub fn data_dir() -> PathBuf {
     env::var_os("DBX_PLUGIN_DATA_DIR")
@@ -25,10 +28,14 @@ pub fn now_ms() -> u64 {
 }
 
 pub fn truncate_chars(text: &str, max_chars: usize) -> String {
-    if text.chars().count() <= max_chars {
-        return text.to_string();
+    let mut count = 0;
+    for (idx, _) in text.char_indices() {
+        if count == max_chars {
+            return text[..idx].to_string();
+        }
+        count += 1;
     }
-    text.chars().take(max_chars).collect()
+    text.to_string()
 }
 
 pub fn fingerprint_text(text: &str) -> String {
@@ -46,6 +53,18 @@ pub fn fingerprint_paths(paths: &[PathBuf]) -> String {
         .collect();
     normalized.sort();
     format!("files:{}", hash_bytes(normalized.join("\n").as_bytes()))
+}
+
+pub fn fingerprint_capture(capture: &Capture) -> Result<String, PluginError> {
+    match capture {
+        Capture::Text(text) => Ok(fingerprint_text(text)),
+        Capture::Image {
+            width,
+            height,
+            rgba,
+        } => fingerprint_store_image(*width, *height, rgba),
+        Capture::Files(paths) => Ok(fingerprint_paths(paths)),
+    }
 }
 
 fn hash_bytes(bytes: &[u8]) -> u64 {
